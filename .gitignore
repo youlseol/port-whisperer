@@ -13,3 +13,6 @@ coverage/
 .nyc_output/
 dist/
 tmp/
+rust/target/**
+tasks/lessons.md
+tasks/todo.md

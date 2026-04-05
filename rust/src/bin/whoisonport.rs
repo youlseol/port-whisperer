@@ -1,18 +1,23 @@
+#[path = "../cli.rs"]
 mod cli;
+#[path = "../collector/mod.rs"]
 mod collector;
+#[path = "../display/mod.rs"]
 mod display;
+#[path = "../enricher/mod.rs"]
 mod enricher;
+#[path = "../platform/mod.rs"]
 mod platform;
+#[path = "../types.rs"]
 mod types;
 
 use anyhow::Result;
 use clap::Parser;
-use cli::{Cli, Commands};
 use dialoguer::Confirm;
 use std::io::IsTerminal;
 
 fn main() -> Result<()> {
-    let cli = Cli::parse();
+    let cli = cli::Cli::parse();
 
     if let Some(port_num) = cli.port_number {
         if let Some((entry, tree)) = collector::get_port_detail(port_num)? {
@@ -39,11 +44,11 @@ fn main() -> Result<()> {
             let entries = collector::collect_ports(cli.all)?;
             display::table::print_port_table(&entries, !cli.all);
         }
-        Some(Commands::Ps { all }) => {
+        Some(cli::Commands::Ps { all }) => {
             let processes = collector::collect_processes(all);
             display::table::print_process_table(&processes, !all);
         }
-        Some(Commands::Clean) => {
+        Some(cli::Commands::Clean) => {
             let entries = collector::collect_ports(false)?;
             let cleanup_targets: Vec<_> = entries
                 .into_iter()
@@ -88,7 +93,7 @@ fn main() -> Result<()> {
                 .collect::<Vec<_>>();
             display::detail::print_clean_results(&results);
         }
-        Some(Commands::Watch { interval_ms }) => {
+        Some(cli::Commands::Watch { interval_ms }) => {
             display::watch::start_watch(interval_ms)?;
         }
     }

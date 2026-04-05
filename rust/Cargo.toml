@@ -8,6 +8,10 @@ default-run = "ports"
 name = "ports"
 path = "src/main.rs"
 
+[[bin]]
+name = "whoisonport"
+path = "src/bin/whoisonport.rs"
+
 [features]
 watch = ["tokio", "ratatui", "crossterm"]
 

@@ -40,6 +40,7 @@ const FRAMEWORK_COLORS = {
   Ruby: chalk.red,
   Python: chalk.yellow,
   "Node.js": chalk.green,
+  Bun: chalk.yellow,
   Java: chalk.red,
   Hono: chalk.rgb(255, 102, 0),
   Koa: chalk.white,
@@ -58,6 +59,10 @@ const FRAMEWORK_COLORS = {
   Elasticsearch: chalk.yellow,
   MinIO: chalk.red,
 };
+
+const KILL_COMMAND = process.platform === "win32"
+  ? (pid) => `taskkill /PID ${pid} /F`
+  : (pid) => `kill -9 ${pid}`;
 
 /**
  * Render the header banner
@@ -335,7 +340,7 @@ export function displayPortDetail(info) {
     chalk.gray("  Kill this process: ") +
       chalk.cyan(`ports clean`) +
       chalk.gray(" or ") +
-      chalk.red(`kill ${info.pid}`),
+      chalk.red(KILL_COMMAND(info.pid)),
   );
   console.log();
 }
@@ -371,7 +376,7 @@ export function displayCleanResults(orphaned, killed, failed) {
       `  ${icon} :${chalk.white.bold(p.port)} ${chalk.gray("—")} ${p.processName} ${chalk.gray(`(PID ${p.pid})`)}`,
     );
     if (didFail) {
-      console.log(chalk.red(`    Failed to kill. Try: sudo kill -9 ${p.pid}`));
+      console.log(chalk.red(`    Failed to kill. Try: ${KILL_COMMAND(p.pid)}`));
     }
   }
 
