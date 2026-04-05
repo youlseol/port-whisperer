@@ -1,0 +1,14 @@
+/Users/A59833/Documents/Workspace/port-whisperer/rust/target/debug/deps/serde-e292122c698f98b1.d: /Users/A59833/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/A59833/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/A59833/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/A59833/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/A59833/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/A59833/Documents/Workspace/port-whisperer/rust/target/debug/build/serde-2beb76a2a4a45d11/out/private.rs
+
+/Users/A59833/Documents/Workspace/port-whisperer/rust/target/debug/deps/libserde-e292122c698f98b1.rlib: /Users/A59833/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/A59833/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/A59833/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/A59833/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/A59833/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/A59833/Documents/Workspace/port-whisperer/rust/target/debug/build/serde-2beb76a2a4a45d11/out/private.rs
+
+/Users/A59833/Documents/Workspace/port-whisperer/rust/target/debug/deps/libserde-e292122c698f98b1.rmeta: /Users/A59833/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/A59833/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/A59833/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/A59833/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/A59833/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/A59833/Documents/Workspace/port-whisperer/rust/target/debug/build/serde-2beb76a2a4a45d11/out/private.rs
+
+/Users/A59833/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs:
+/Users/A59833/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs:
+/Users/A59833/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs:
+/Users/A59833/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs:
+/Users/A59833/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs:
+/Users/A59833/Documents/Workspace/port-whisperer/rust/target/debug/build/serde-2beb76a2a4a45d11/out/private.rs:
+
+# env-dep:OUT_DIR=/Users/A59833/Documents/Workspace/port-whisperer/rust/target/debug/build/serde-2beb76a2a4a45d11/out
