@@ -9,5 +9,7 @@ pub fn kill_process(pid: u32) -> anyhow::Result<()> {
     #[cfg(windows)]
     return windows::kill_process(pid);
     #[cfg(not(any(unix, windows)))]
-    Err(anyhow::anyhow!("kill_process not supported on this platform"))
+    Err(anyhow::anyhow!(
+        "kill_process not supported on this platform"
+    ))
 }

@@ -1,4 +1,4 @@
-use crate::types::{CleanResult, PortEntry, ProcessTreeNode, PortStatus};
+use crate::types::{CleanResult, PortEntry, PortStatus, ProcessTreeNode};
 use colored::{ColoredString, Colorize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -14,14 +14,16 @@ pub fn print_port_detail(entry: &PortEntry, tree: &[ProcessTreeNode]) {
     print_field("Memory", &format_memory(entry.memory_kb));
     print_field(
         "Uptime",
-        entry.start_time
+        entry
+            .start_time
             .map(format_uptime_from_epoch)
             .unwrap_or_else(|| "—".into())
             .as_str(),
     );
     print_field(
         "Started",
-        entry.start_time
+        entry
+            .start_time
             .map(format_started_at)
             .unwrap_or_else(|| "—".into())
             .as_str(),
@@ -108,8 +110,12 @@ pub fn print_clean_results(results: &[CleanResult]) {
     if killed > 0 {
         println!(
             "{}",
-            format!("  Cleaned {} process{}.", killed, if killed == 1 { "" } else { "es" })
-                .green()
+            format!(
+                "  Cleaned {} process{}.",
+                killed,
+                if killed == 1 { "" } else { "es" }
+            )
+            .green()
         );
     }
     if failed > 0 {

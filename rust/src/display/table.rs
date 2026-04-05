@@ -26,9 +26,15 @@ pub fn print_port_table(ports: &[PortEntry], dev_only: bool) {
     for entry in ports {
         let port_str = format!(":{}", entry.port);
         let port_cell = match entry.status {
-            PortStatus::Healthy => Cell::new(&port_str).fg(Color::Cyan).add_attribute(Attribute::Bold),
-            PortStatus::Zombie => Cell::new(&port_str).fg(Color::Red).add_attribute(Attribute::Bold),
-            PortStatus::Orphaned => Cell::new(&port_str).fg(Color::Yellow).add_attribute(Attribute::Bold),
+            PortStatus::Healthy => Cell::new(&port_str)
+                .fg(Color::Cyan)
+                .add_attribute(Attribute::Bold),
+            PortStatus::Zombie => Cell::new(&port_str)
+                .fg(Color::Red)
+                .add_attribute(Attribute::Bold),
+            PortStatus::Orphaned => Cell::new(&port_str)
+                .fg(Color::Yellow)
+                .add_attribute(Attribute::Bold),
         };
 
         let process_label = if let Some(docker) = &entry.docker {
@@ -48,7 +54,10 @@ pub fn print_port_table(ports: &[PortEntry], dev_only: bool) {
             Cell::new(entry.pid.to_string()).fg(Color::DarkGrey),
             optional_cell(entry.project_name.as_deref(), Color::Blue),
             framework_cell,
-            optional_cell(entry.start_time.map(format_uptime_from_epoch).as_deref(), Color::Yellow),
+            optional_cell(
+                entry.start_time.map(format_uptime_from_epoch).as_deref(),
+                Color::Yellow,
+            ),
             Cell::new(format_memory(entry.memory_kb)).fg(Color::DarkGrey),
             status_cell(&entry.status),
         ]);
@@ -57,7 +66,11 @@ pub fn print_port_table(ports: &[PortEntry], dev_only: bool) {
     println!("{table}");
 
     let count = ports.len();
-    let summary = format!("  {} port{} active", count, if count == 1 { "" } else { "s" });
+    let summary = format!(
+        "  {} port{} active",
+        count,
+        if count == 1 { "" } else { "s" }
+    );
     println!("{}", summary.dimmed());
     if dev_only {
         println!("{}", "  Run with --all to show everything".dimmed());
@@ -98,7 +111,10 @@ pub fn print_process_table(processes: &[ProcessEntry], show_all_hint: bool) {
             Cell::new(format_memory(entry.memory_kb)).fg(Color::DarkGrey),
             optional_cell(entry.project_name.as_deref(), Color::Blue),
             optional_cell(entry.framework.as_deref(), Color::Green),
-            optional_cell(entry.start_time.map(format_uptime_from_epoch).as_deref(), Color::Yellow),
+            optional_cell(
+                entry.start_time.map(format_uptime_from_epoch).as_deref(),
+                Color::Yellow,
+            ),
             status_cell(&entry.status),
             Cell::new(&entry.description).fg(Color::DarkGrey),
         ]);
@@ -108,7 +124,12 @@ pub fn print_process_table(processes: &[ProcessEntry], show_all_hint: bool) {
     let count = processes.len();
     println!(
         "{}",
-        format!("  {} process{} active", count, if count == 1 { "" } else { "es" }).dimmed()
+        format!(
+            "  {} process{} active",
+            count,
+            if count == 1 { "" } else { "es" }
+        )
+        .dimmed()
     );
     if show_all_hint {
         println!("{}", "  Run with --all to show everything".dimmed());

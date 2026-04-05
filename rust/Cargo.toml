@@ -12,9 +12,6 @@ path = "src/main.rs"
 name = "whoisonport"
 path = "src/bin/whoisonport.rs"
 
-[features]
-watch = ["tokio", "ratatui", "crossterm"]
-
 [dependencies]
 netstat2 = "0.11"
 sysinfo = "0.38"
@@ -29,10 +26,8 @@ dialoguer = "0.12"
 indicatif = "0.18"
 regex = "1.11"
 once_cell = "1.20"
-
-tokio = { version = "1.51", features = ["rt", "rt-multi-thread", "time", "macros"], optional = true }
-ratatui = { version = "0.30", optional = true }
-crossterm = { version = "0.29", optional = true }
+ratatui = "0.30"
+crossterm = "0.29"
 
 [target.'cfg(unix)'.dependencies]
 nix = { version = "0.31", features = ["signal", "process"] }

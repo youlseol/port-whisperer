@@ -23,6 +23,7 @@ Run locally without installing:
 ```bash
 cargo run --manifest-path rust/Cargo.toml --bin ports -- --help
 cargo run --manifest-path rust/Cargo.toml --bin ports --
+cargo run --manifest-path rust/Cargo.toml --bin ports -- --plain
 ```
 
 Windows PowerShell uses the same Rust commands:
@@ -41,12 +42,30 @@ ports watch
 ```bash
 ports
 ports --all
+ports --interval-ms 1000
 ports ps
 ports 3000
 ports clean
 ports watch
+ports --plain ps
 whoisonport 3000
 ```
+
+## TUI
+
+- `ports` now opens a full-screen `ratatui` dashboard by default when stdin/stdout is a TTY.
+- Use `--plain` to force the legacy text renderer or when piping output.
+- Main keys:
+  - `j`/`k`, arrow keys: move selection
+  - `Tab` / `Shift+Tab`: switch views
+  - `/`: filter
+  - `s`: cycle sort
+  - `a`: toggle dev-only vs all scope for the current view
+  - `x`: kill selected process
+  - `c`: clean orphaned/zombie targets
+  - `r`: refresh
+  - `d` or `Enter`: expand/collapse detail emphasis
+  - `q`: quit
 
 ## Verification
 
@@ -68,6 +87,7 @@ cargo clippy --manifest-path rust/Cargo.toml -- -D warnings
 - Framework and project detection are based on process `cwd` plus project markers like `package.json`, `Cargo.toml`, and `pyproject.toml`.
 - Runtime install directories are intentionally not treated as project roots.
 - `watch` is polling-based.
+- Non-interactive environments automatically fall back to plain text output.
 - Some kill operations still require elevated permissions, especially on Windows.
 
 ## License

@@ -7,5 +7,7 @@ pub fn kill_process(pid: u32) -> anyhow::Result<()> {
             .map_err(|e| anyhow::anyhow!("Failed to kill PID {}: {}", pid, e))
     }
     #[cfg(not(unix))]
-    Err(anyhow::anyhow!("kill_process not supported on this platform"))
+    Err(anyhow::anyhow!(
+        "kill_process not supported on this platform"
+    ))
 }

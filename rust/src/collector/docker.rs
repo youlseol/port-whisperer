@@ -1,8 +1,8 @@
-use std::collections::HashMap;
-use std::process::Command;
+use crate::types::DockerInfo;
 use once_cell::sync::Lazy;
 use regex::Regex;
-use crate::types::DockerInfo;
+use std::collections::HashMap;
+use std::process::Command;
 
 static DOCKER_PORT_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"(?:[\d.]+|:::|\*):(\d+)->").unwrap());
@@ -32,7 +32,13 @@ pub fn get_docker_port_map() -> HashMap<u16, DockerInfo> {
 
         for cap in DOCKER_PORT_RE.captures_iter(ports_str) {
             if let Ok(port) = cap[1].parse::<u16>() {
-                map.insert(port, DockerInfo { name: name.clone(), image: image.clone() });
+                map.insert(
+                    port,
+                    DockerInfo {
+                        name: name.clone(),
+                        image: image.clone(),
+                    },
+                );
             }
         }
     }

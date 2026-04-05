@@ -4,7 +4,7 @@ pub mod ports;
 pub mod processes;
 
 use crate::enricher;
-use crate::types::{PortEntry, ProcessEntry};
+use crate::types::{PortEntry, ProcessEntry, ProcessTreeNode};
 use anyhow::Result;
 use rayon::prelude::*;
 use std::collections::HashSet;
@@ -32,8 +32,7 @@ pub fn collect_ports(show_all: bool) -> Result<Vec<PortEntry>> {
         .map(|(port, pid)| {
             let proc = sys.process(Pid::from(*pid as usize));
             let cwd = proc.and_then(|p| processes::project_root_from_cwd(p.cwd()));
-            let process_name =
-                proc.map(processes::process_name).unwrap_or_default();
+            let process_name = proc.map(processes::process_name).unwrap_or_default();
             let command = proc.map(processes::command_line).unwrap_or_default();
             let is_dev = enricher::status::is_dev_process(&process_name, &command);
             let status = proc
@@ -42,10 +41,17 @@ pub fn collect_ports(show_all: bool) -> Result<Vec<PortEntry>> {
             let framework = cwd
                 .as_deref()
                 .and_then(enricher::framework::detect)
-                .or_else(|| docker_map.get(port).map(|d| infer_docker_framework(&d.image)));
+                .or_else(|| {
+                    docker_map
+                        .get(port)
+                        .map(|d| infer_docker_framework(&d.image))
+                });
             let project_name = cwd
                 .as_ref()
-                .and_then(|root| root.file_name().map(|name| name.to_string_lossy().into_owned()))
+                .and_then(|root| {
+                    root.file_name()
+                        .map(|name| name.to_string_lossy().into_owned())
+                })
                 .or_else(|| docker_map.get(port).map(|d| d.name.clone()));
 
             PortEntry {
@@ -79,7 +85,9 @@ pub fn collect_processes(show_all: bool) -> Vec<ProcessEntry> {
     let mut processes_list: Vec<ProcessEntry> = sys
         .processes()
         .values()
-        .filter(|process| process.pid().as_u32() > 1 && process.pid().as_u32() != std::process::id())
+        .filter(|process| {
+            process.pid().as_u32() > 1 && process.pid().as_u32() != std::process::id()
+        })
         .filter_map(|process| {
             let process_name = processes::process_name(process);
             let command = processes::command_line(process);
@@ -89,9 +97,10 @@ pub fn collect_processes(show_all: bool) -> Vec<ProcessEntry> {
             }
 
             let cwd = processes::project_root_from_cwd(process.cwd());
-            let project_name = cwd
-                .as_ref()
-                .and_then(|root| root.file_name().map(|name| name.to_string_lossy().into_owned()));
+            let project_name = cwd.as_ref().and_then(|root| {
+                root.file_name()
+                    .map(|name| name.to_string_lossy().into_owned())
+            });
             let framework = cwd
                 .as_deref()
                 .and_then(enricher::framework::detect)
@@ -116,15 +125,21 @@ pub fn collect_processes(show_all: bool) -> Vec<ProcessEntry> {
     processes_list
 }
 
-pub fn get_port_detail(port: u16) -> Result<Option<(PortEntry, Vec<crate::types::ProcessTreeNode>)>> {
+pub fn get_port_detail(
+    port: u16,
+) -> Result<Option<(PortEntry, Vec<crate::types::ProcessTreeNode>)>> {
     let entries = collect_ports(true)?;
     let Some(entry) = entries.into_iter().find(|entry| entry.port == port) else {
         return Ok(None);
     };
 
-    let sys = processes::refresh_all_processes(false);
-    let tree = processes::process_tree(entry.pid, &sys);
+    let tree = get_process_tree(entry.pid);
     Ok(Some((entry, tree)))
+}
+
+pub fn get_process_tree(pid: u32) -> Vec<ProcessTreeNode> {
+    let sys = processes::refresh_all_processes(false);
+    processes::process_tree(pid, &sys)
 }
 
 fn infer_docker_framework(image: &str) -> String {

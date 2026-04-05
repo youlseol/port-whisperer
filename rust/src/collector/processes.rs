@@ -21,18 +21,10 @@ pub fn refresh_processes(pids: &[u32], with_cpu: bool) -> System {
     let sysinfo_pids: Vec<Pid> = pids.iter().map(|&pid| Pid::from_u32(pid)).collect();
     let refresh_kind = refresh_kind(with_cpu);
 
-    sys.refresh_processes_specifics(
-        ProcessesToUpdate::Some(&sysinfo_pids),
-        true,
-        refresh_kind,
-    );
+    sys.refresh_processes_specifics(ProcessesToUpdate::Some(&sysinfo_pids), true, refresh_kind);
     if with_cpu {
         sleep(Duration::from_millis(150));
-        sys.refresh_processes_specifics(
-            ProcessesToUpdate::Some(&sysinfo_pids),
-            true,
-            refresh_kind,
-        );
+        sys.refresh_processes_specifics(ProcessesToUpdate::Some(&sysinfo_pids), true, refresh_kind);
     }
 
     sys
@@ -200,17 +192,21 @@ mod tests {
 
     #[test]
     fn project_root_requires_marker() {
-        let temp = std::env::temp_dir().join(format!(
-            "port-whisperer-test-{}",
-            std::process::id()
-        ));
+        let temp = std::env::temp_dir().join(format!("port-whisperer-test-{}", std::process::id()));
         let nested = temp.join("runtime/bin");
         fs::create_dir_all(&nested).unwrap();
         assert_eq!(project_root_from_cwd(Some(&nested)), None);
         fs::create_dir_all(temp.join("app/src")).unwrap();
-        fs::write(temp.join("app/Cargo.toml"), "[package]\nname='x'\nversion='0.1.0'\n").unwrap();
+        fs::write(
+            temp.join("app/Cargo.toml"),
+            "[package]\nname='x'\nversion='0.1.0'\n",
+        )
+        .unwrap();
         let project = temp.join("app/src");
-        assert_eq!(project_root_from_cwd(Some(&project)), Some(PathBuf::from(temp.join("app"))));
+        assert_eq!(
+            project_root_from_cwd(Some(&project)),
+            Some(PathBuf::from(temp.join("app")))
+        );
         let _ = fs::remove_dir_all(temp);
     }
 }
