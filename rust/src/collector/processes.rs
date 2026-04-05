@@ -153,6 +153,7 @@ pub fn build_process_entry(
     ProcessEntry {
         pid: process.pid().as_u32(),
         process_name: process_name.clone(),
+        command: command.clone(),
         description: summarize_command(&command, &process_name),
         cwd: project_root_from_cwd(process.cwd()),
         project_name,

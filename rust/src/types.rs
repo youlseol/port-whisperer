@@ -33,6 +33,7 @@ pub struct DockerInfo {
 pub struct ProcessEntry {
     pub pid: u32,
     pub process_name: String,
+    pub command: String,
     pub description: String,
     pub cwd: Option<PathBuf>,
     pub project_name: Option<String>,

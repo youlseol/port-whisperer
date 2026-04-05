@@ -720,7 +720,16 @@ impl App {
             .split(chunks[2]);
 
         self.render_list(frame, body[0]);
-        self.render_detail(frame, body[1]);
+        if self.view == View::Watch {
+            let right = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([Constraint::Percentage(55), Constraint::Percentage(45)])
+                .split(body[1]);
+            self.render_detail(frame, right[0]);
+            self.render_watch_timeline(frame, right[1]);
+        } else {
+            self.render_detail(frame, body[1]);
+        }
         frame.render_widget(self.footer(), chunks[3]);
 
         if self.filtering {
@@ -880,14 +889,14 @@ impl App {
 
     fn render_detail(&self, frame: &mut Frame<'_>, area: Rect) {
         let title = if self.view == View::Watch {
-            "Watch + Detail"
+            "Watch Summary"
         } else {
             self.detail.title()
         };
         let block = Block::default().borders(Borders::ALL).title(title);
 
         let text = if self.view == View::Watch {
-            self.watch_detail_text()
+            self.watch_summary_text()
         } else if self.view == View::Clean && !self.clean_results.is_empty() {
             self.clean_results_text()
         } else {
@@ -896,6 +905,19 @@ impl App {
 
         frame.render_widget(
             Paragraph::new(text).block(block).wrap(Wrap { trim: false }),
+            area,
+        );
+    }
+
+    fn render_watch_timeline(&self, frame: &mut Frame<'_>, area: Rect) {
+        let text = self.watch_timeline_text();
+        frame.render_widget(
+            Paragraph::new(text)
+                .block(Block::default().borders(Borders::ALL).title(format!(
+                    "Event Timeline [{}]",
+                    self.watch_events.len()
+                )))
+                .wrap(Wrap { trim: false }),
             area,
         );
     }
@@ -992,6 +1014,7 @@ impl App {
                             .map(|path| path.to_string_lossy().into_owned())
                             .unwrap_or_else(|| "—".to_string()),
                     ),
+                    line_kv("Command", truncate_owned(entry.command.clone(), 120)),
                     Line::raw(""),
                     Line::styled(
                         "Process Tree",
@@ -1030,6 +1053,7 @@ impl App {
                             .unwrap_or_else(|| "—".to_string()),
                     ),
                     line_kv("What", entry.description.clone()),
+                    line_kv("Command", truncate_owned(entry.command.clone(), 120)),
                     Line::raw(""),
                     Line::styled(
                         "Process Tree",
@@ -1052,24 +1076,63 @@ impl App {
         }
     }
 
-    fn watch_detail_text(&self) -> Text<'static> {
-        let mut lines = self.detail_text().lines;
-        lines.push(Line::raw(""));
-        lines.push(Line::styled(
-            "Recent Events",
-            Style::default()
-                .fg(Color::Magenta)
-                .add_modifier(Modifier::BOLD),
-        ));
+    fn watch_summary_text(&self) -> Text<'static> {
+        let visible = self.filtered_ports().len();
+        let total = self.ports.len();
+        let orphaned = self
+            .ports
+            .iter()
+            .filter(|entry| matches!(entry.status, PortStatus::Orphaned))
+            .count();
+        let zombie = self
+            .ports
+            .iter()
+            .filter(|entry| matches!(entry.status, PortStatus::Zombie))
+            .count();
+        let latest = self
+            .watch_events
+            .last()
+            .map(|event| format!("{}  {}", format_clock(event.at_epoch), event.label))
+            .unwrap_or_else(|| "No port changes observed yet.".to_string());
+
+        let mut lines = vec![
+            line_kv("Visible", visible.to_string()),
+            line_kv("Tracked", total.to_string()),
+            line_kv("Orphaned", orphaned.to_string()),
+            line_kv("Zombie", zombie.to_string()),
+            line_kv("Latest", latest),
+            Line::raw(""),
+            Line::styled(
+                "Selected Entry",
+                Style::default()
+                    .fg(Color::Magenta)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Line::raw(""),
+        ];
+        lines.extend(self.detail_text().lines);
+        Text::from(lines)
+    }
+
+    fn watch_timeline_text(&self) -> Text<'static> {
+        let mut lines = Vec::new();
         if self.watch_events.is_empty() {
             lines.push(Line::raw("No port changes observed yet."));
         } else {
-            for event in self.watch_events.iter().rev().take(12) {
-                lines.push(Line::raw(format!(
-                    "{}  {}",
-                    format_clock(event.at_epoch),
-                    event.label
-                )));
+            for event in self.watch_events.iter().rev().take(20) {
+                lines.push(Line::from(vec![
+                    Span::styled(
+                        format_clock(event.at_epoch),
+                        Style::default().fg(Color::DarkGray),
+                    ),
+                    Span::raw("  "),
+                    Span::styled(
+                        watch_event_marker(&event.label),
+                        Style::default().fg(watch_event_color(&event.label)),
+                    ),
+                    Span::raw("  "),
+                    Span::raw(event.label.clone()),
+                ]));
             }
         }
         Text::from(lines)
@@ -1288,6 +1351,7 @@ fn process_matches_filter(entry: &ProcessEntry, filter: &str) -> bool {
     [
         entry.pid.to_string(),
         entry.process_name.to_lowercase(),
+        entry.command.to_lowercase(),
         entry.description.to_lowercase(),
         entry
             .project_name
@@ -1351,6 +1415,30 @@ fn color_for_notification(level: NotificationLevel) -> Color {
         NotificationLevel::Success => Color::Green,
         NotificationLevel::Warning => Color::Yellow,
         NotificationLevel::Error => Color::Red,
+    }
+}
+
+fn watch_event_marker(label: &str) -> &'static str {
+    if label.starts_with("▲ NEW") {
+        "NEW"
+    } else if label.starts_with("▼ CLOSED") {
+        "CLOSED"
+    } else if label.starts_with("◆ CHANGED") {
+        "CHANGED"
+    } else {
+        "EVENT"
+    }
+}
+
+fn watch_event_color(label: &str) -> Color {
+    if label.starts_with("▲ NEW") {
+        Color::Green
+    } else if label.starts_with("▼ CLOSED") {
+        Color::Red
+    } else if label.starts_with("◆ CHANGED") {
+        Color::Yellow
+    } else {
+        Color::Cyan
     }
 }
 
