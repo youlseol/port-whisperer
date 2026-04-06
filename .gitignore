@@ -16,3 +16,5 @@ tmp/
 rust/target/**
 tasks/lessons.md
 tasks/todo.md
+.omx/**
+rust/.omx/**

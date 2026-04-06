@@ -1,5 +1,6 @@
 use crate::cli::{Cli, Commands};
 use crate::collector;
+use crate::display::banner;
 use crate::platform;
 use crate::types::{CleanResult, PortEntry, PortStatus, ProcessEntry, ProcessTreeNode};
 use anyhow::{Context, Result};
@@ -136,6 +137,128 @@ struct App {
     last_refresh: Instant,
     focus_port: Option<u16>,
     auto_open_clean_modal: bool,
+    intro: Option<IntroAnim>,
+}
+
+// ---------------------------------------------------------------------------
+// Intro banner animation
+// ---------------------------------------------------------------------------
+
+struct IntroAnim {
+    started: Instant,
+    /// Duration of the slide-in movement
+    slide_duration: Duration,
+    /// Extra hold time after the slide completes before transitioning to normal view
+    hold_duration: Duration,
+    banner: banner::Banner,
+}
+
+impl IntroAnim {
+    fn new() -> Self {
+        Self {
+            started: Instant::now(),
+            slide_duration: Duration::from_millis(3000),
+            hold_duration: Duration::from_millis(1000),
+            banner: banner::build(Some("just say the word")),
+        }
+    }
+
+    /// True once both the slide and the hold period have elapsed.
+    fn is_complete(&self) -> bool {
+        self.started.elapsed() >= self.slide_duration + self.hold_duration
+    }
+
+    /// Elastic ease-out progress for the slide phase only: 0.0 → 1.0.
+    fn eased_progress(&self) -> f32 {
+        let t = (self.started.elapsed().as_millis() as f32
+            / self.slide_duration.as_millis() as f32)
+            .min(1.0);
+        elastic_ease_out(t)
+    }
+
+    /// Cubic ease-out progress used to drive the weight/boldness transition.
+    fn weight_progress(&self) -> f32 {
+        let t = (self.started.elapsed().as_millis() as f32
+            / self.slide_duration.as_millis() as f32)
+            .min(1.0);
+        1.0 - (1.0 - t).powi(3)
+    }
+
+    /// Current x offset for the banner.
+    /// At progress 0.0 the banner is fully off-screen to the left; at 1.0 it is centred.
+    fn x_offset(&self, banner_width: i32, term_width: u16) -> i32 {
+        let progress = self.eased_progress();
+        let final_x = ((term_width as i32 - banner_width) / 2).max(0);
+        let start_x = -(banner_width + 4);
+        (start_x as f32 + progress * (final_x as f32 - start_x as f32)) as i32
+    }
+}
+
+/// Elastic ease-out: overshoots slightly then settles.
+fn elastic_ease_out(t: f32) -> f32 {
+    if t == 0.0 || t == 1.0 {
+        return t;
+    }
+    let c4 = (2.0 * std::f32::consts::PI) / 3.0;
+    2_f32.powf(-10.0 * t) * ((t * 10.0 - 0.75) * c4).sin() + 1.0
+}
+
+/// Compute the text style based on how far through the slide phase we are.
+/// Uses RGB colour interpolation so the change is clearly visible on all terminals.
+/// 0.0 = just entering (near-black, dim)
+/// 1.0 = fully arrived (vivid, bold)
+fn anim_text_style(base_color: Color, weight_progress: f32) -> Style {
+    let p = weight_progress.clamp(0.0, 1.0);
+
+    let (target_r, target_g, target_b): (u8, u8, u8) = match base_color {
+        Color::Green => (0, 230, 80),
+        Color::Cyan => (0, 200, 230),
+        Color::DarkGray => (100, 100, 120),
+        _ => (210, 210, 210),
+    };
+
+    let start: u8 = 35; // near-black start
+    let lerp = |s: u8, e: u8| -> u8 { (s as f32 + p * (e as f32 - s as f32)) as u8 };
+
+    let r = lerp(start, target_r);
+    let g = lerp(start, target_g);
+    let b = lerp(start, target_b);
+
+    let mut style = Style::default().fg(Color::Rgb(r, g, b));
+    if p >= 0.85 {
+        style = style.add_modifier(Modifier::BOLD);
+    } else if p <= 0.15 {
+        style = style.add_modifier(Modifier::DIM);
+    }
+    style
+}
+
+/// Build a single ratatui Line with the correct horizontal clip/pad applied.
+fn make_banner_line_styled<'a>(
+    content: &'a str,
+    x_offset: i32,
+    term_width: u16,
+    style: Style,
+) -> Line<'a> {
+    let tw = term_width as i32;
+    let chars: Vec<char> = content.chars().collect();
+    let char_len = chars.len() as i32;
+
+    if x_offset + char_len <= 0 || x_offset >= tw {
+        return Line::from("");
+    }
+
+    if x_offset >= 0 {
+        let pad = " ".repeat(x_offset as usize);
+        let visible_len = (char_len.min(tw - x_offset)) as usize;
+        let visible: String = chars[..visible_len].iter().collect();
+        Line::from(vec![Span::raw(pad), Span::styled(visible, style)])
+    } else {
+        let skip = (-x_offset) as usize;
+        let available = (tw as usize).min(chars.len().saturating_sub(skip));
+        let visible: String = chars[skip..skip + available].iter().collect();
+        Line::from(Span::styled(visible, style))
+    }
 }
 
 impl From<&Cli> for LaunchOptions {
@@ -167,6 +290,10 @@ pub fn run(options: impl Into<LaunchOptions>) -> Result<()> {
     let mut tui = TuiSession::enter()?;
     let mut app = App::new(options);
     app.refresh()?;
+    // Reset the intro timer so the animation always starts AFTER data has loaded.
+    if let Some(ref mut intro) = app.intro {
+        intro.started = Instant::now();
+    }
 
     loop {
         tui.terminal.draw(|frame| app.render(frame))?;
@@ -177,13 +304,22 @@ pub fn run(options: impl Into<LaunchOptions>) -> Result<()> {
         let timeout = app.poll_timeout();
         if event::poll(timeout)? {
             match event::read()? {
-                Event::Key(key) if key.kind == KeyEventKind::Press => app.handle_key(key)?,
+                Event::Key(key) if key.kind == KeyEventKind::Press => {
+                    if app.intro.is_some() {
+                        // Any key skips the intro animation immediately
+                        app.intro = None;
+                    } else {
+                        app.handle_key(key)?;
+                    }
+                }
                 Event::Resize(_, _) => {}
                 _ => {}
             }
         }
 
-        if app.last_refresh.elapsed() >= app.interval {
+        app.tick_intro();
+
+        if app.intro.is_none() && app.last_refresh.elapsed() >= app.interval {
             app.refresh()?;
         }
     }
@@ -223,10 +359,14 @@ impl App {
             last_refresh: Instant::now() - Duration::from_millis(options.interval_ms.max(250)),
             focus_port: options.focus_port,
             auto_open_clean_modal: options.open_clean_modal,
+            intro: Some(IntroAnim::new()),
         }
     }
 
     fn poll_timeout(&self) -> Duration {
+        if self.intro.is_some() {
+            return Duration::from_millis(16);
+        }
         self.interval
             .checked_sub(self.last_refresh.elapsed())
             .unwrap_or_else(|| Duration::from_millis(0))
@@ -697,6 +837,11 @@ impl App {
     }
 
     fn render(&self, frame: &mut Frame<'_>) {
+        if let Some(ref anim) = self.intro {
+            self.render_intro(frame, anim);
+            return;
+        }
+
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
@@ -737,6 +882,62 @@ impl App {
         }
         if self.pending_action.is_some() {
             self.render_confirm_modal(frame);
+        }
+    }
+
+    fn render_intro(&self, frame: &mut Frame<'_>, anim: &IntroAnim) {
+        let area = frame.area();
+        let b = &anim.banner;
+        let lines = &b.all_lines;
+
+        let banner_width = lines
+            .iter()
+            .map(|l| l.chars().count() as i32)
+            .max()
+            .unwrap_or(0);
+
+        let x_offset = anim.x_offset(banner_width, area.width);
+        let weight = anim.weight_progress();
+        let total_height = lines.len() as u16;
+        let y_start = area.height.saturating_sub(total_height) / 2;
+
+        // Gradient + weight-based style: PORT=green, WHISPERER=cyan, subtitle=dimgray
+        let port_end = b.port_line_count;
+        let whisp_end = port_end + 1 + b.whisperer_line_count;
+
+        let rendered_lines: Vec<Line<'_>> = lines
+            .iter()
+            .enumerate()
+            .map(|(i, l)| {
+                let base_color = if i < port_end {
+                    Color::Green
+                } else if i > port_end && i <= whisp_end {
+                    Color::Cyan
+                } else {
+                    Color::DarkGray
+                };
+                let style = anim_text_style(base_color, weight);
+                make_banner_line_styled(l.as_str(), x_offset, area.width, style)
+            })
+            .collect();
+
+        frame.render_widget(Clear, area);
+        frame.render_widget(
+            Paragraph::new(Text::from(rendered_lines)),
+            Rect {
+                x: area.x,
+                y: area.y + y_start,
+                width: area.width,
+                height: total_height.min(area.height.saturating_sub(y_start)),
+            },
+        );
+    }
+
+    fn tick_intro(&mut self) {
+        if let Some(ref anim) = self.intro {
+            if anim.is_complete() {
+                self.intro = None;
+            }
         }
     }
 

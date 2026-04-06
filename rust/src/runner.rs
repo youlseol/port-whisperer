@@ -22,6 +22,10 @@ fn should_use_tui(cli: &Cli) -> bool {
 }
 
 fn run_plain(cli: Cli) -> Result<()> {
+    if std::io::stdout().is_terminal() {
+        crate::display::banner::print_plain();
+    }
+
     if let Some(port_num) = cli.port_number {
         if let Some((entry, tree)) = crate::collector::get_port_detail(port_num)? {
             crate::display::detail::print_port_detail(&entry, &tree);
