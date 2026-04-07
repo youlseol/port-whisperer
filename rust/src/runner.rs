@@ -9,7 +9,7 @@ pub fn run(cli: Cli) -> Result<()> {
         match tui::run(&cli) {
             Ok(()) => return Ok(()),
             Err(error) => {
-                eprintln!("TUI unavailable, falling back to plain mode: {error}");
+                eprintln!("TUI unavailable (tip: try a modern terminal like Windows Terminal), falling back to plain mode: {error}");
             }
         }
     }

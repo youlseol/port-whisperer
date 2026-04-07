@@ -73,6 +73,48 @@ fn render_word(font: &FIGfont, word: &str) -> Vec<String> {
     word_lines
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn build_produces_non_empty_banner() {
+        let b = build(None);
+        assert!(!b.all_lines.is_empty(), "banner should have lines");
+        assert!(b.port_line_count > 0, "PORT block should have lines");
+        assert!(b.whisperer_line_count > 0, "WHISPERER block should have lines");
+    }
+
+    #[test]
+    fn build_with_subtitle_appends_extra_lines() {
+        let without = build(None).all_lines.len();
+        let with_sub = build(Some("just say the word")).all_lines.len();
+        // subtitle adds a blank line + the subtitle itself
+        assert_eq!(with_sub, without + 2);
+    }
+
+    #[test]
+    fn banner_structure_separator_present() {
+        let b = build(None);
+        // The blank separator between PORT and WHISPERER blocks must exist
+        let separator_idx = b.port_line_count;
+        assert!(
+            b.all_lines[separator_idx].trim().is_empty(),
+            "separator line between PORT and WHISPERER must be blank"
+        );
+    }
+
+    #[test]
+    fn fallback_banner_has_correct_counts() {
+        // Force the fallback by calling it directly
+        let b = fallback_banner(None);
+        assert_eq!(b.port_line_count, 5);
+        assert_eq!(b.whisperer_line_count, 5);
+        // total: 5 PORT + 1 blank + 5 WHISPERER = 11
+        assert_eq!(b.all_lines.len(), 11);
+    }
+}
+
 /// Minimal fallback used when the figlet font fails to load.
 fn fallback_banner(subtitle: Option<&str>) -> Banner {
     let port_lines: Vec<String> = vec![

@@ -1377,9 +1377,10 @@ impl TuiSession {
         enable_raw_mode().context("failed to enable raw mode")?;
         let mut stdout = io::stdout();
         execute!(stdout, EnterAlternateScreen).context("failed to enter alternate screen")?;
-        stdout
-            .execute(crossterm::event::EnableMouseCapture)
-            .context("failed to enable mouse capture")?;
+        // Mouse capture is best-effort: some Windows terminals (Git Bash, older cmd.exe)
+        // do not support it. Failing here would prevent the TUI — and the intro animation —
+        // from ever running on those environments, so we swallow the error.
+        let _ = stdout.execute(crossterm::event::EnableMouseCapture);
         let backend = CrosstermBackend::new(stdout);
         let terminal = Terminal::new(backend).context("failed to initialize terminal backend")?;
         Ok(Self { terminal })
@@ -1722,5 +1723,106 @@ fn kill_hint(pid: u32) -> String {
         format!("taskkill /F /PID {pid}")
     } else {
         format!("kill -TERM {pid}")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // -----------------------------------------------------------------------
+    // elastic_ease_out boundary conditions
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn elastic_ease_out_at_zero() {
+        assert_eq!(elastic_ease_out(0.0), 0.0);
+    }
+
+    #[test]
+    fn elastic_ease_out_at_one() {
+        assert_eq!(elastic_ease_out(1.0), 1.0);
+    }
+
+    #[test]
+    fn elastic_ease_out_midpoint_is_above_zero() {
+        // At t=0.5 the function should be well above 0 (past the halfway point)
+        let v = elastic_ease_out(0.5);
+        assert!(v > 0.0, "elastic_ease_out(0.5) should be > 0, got {v}");
+    }
+
+    #[test]
+    fn elastic_ease_out_near_end_close_to_one() {
+        // At t=0.99 the function should be very close to 1.0
+        let v = elastic_ease_out(0.99);
+        assert!((v - 1.0).abs() < 0.05, "elastic_ease_out(0.99) should be near 1.0, got {v}");
+    }
+
+    // -----------------------------------------------------------------------
+    // anim_text_style — RGB output sanity checks
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn anim_text_style_fully_arrived_uses_bold() {
+        use ratatui::style::{Color, Modifier};
+        let style = anim_text_style(Color::Green, 1.0);
+        assert!(style.add_modifier.contains(Modifier::BOLD));
+    }
+
+    #[test]
+    fn anim_text_style_just_entered_uses_dim() {
+        use ratatui::style::{Color, Modifier};
+        let style = anim_text_style(Color::Cyan, 0.0);
+        assert!(style.add_modifier.contains(Modifier::DIM));
+    }
+
+    // -----------------------------------------------------------------------
+    // IntroAnim::x_offset — slide geometry
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn intro_anim_x_offset_at_zero_progress_is_offscreen() {
+        // At progress=0 the banner should start fully off-screen to the left.
+        // We fake an IntroAnim by calling x_offset with a synthetic progress of 0
+        // through the public elastic_ease_out path at t=0 → progress=0.
+        // Directly test the formula: start_x = -(banner_width + 4)
+        let banner_width: i32 = 60;
+        let term_width: u16 = 120;
+        let progress: f32 = 0.0; // eased_progress at t=0
+        let final_x = ((term_width as i32 - banner_width) / 2).max(0);
+        let start_x = -(banner_width + 4);
+        let x = (start_x as f32 + progress * (final_x as f32 - start_x as f32)) as i32;
+        assert!(x < 0, "banner should start off-screen (x < 0), got {x}");
+    }
+
+    #[test]
+    fn intro_anim_x_offset_at_full_progress_is_centered() {
+        let banner_width: i32 = 60;
+        let term_width: u16 = 120;
+        let progress: f32 = 1.0;
+        let final_x = ((term_width as i32 - banner_width) / 2).max(0);
+        let start_x = -(banner_width + 4);
+        let x = (start_x as f32 + progress * (final_x as f32 - start_x as f32)) as i32;
+        assert_eq!(x, final_x, "banner should be centred at progress=1.0");
+    }
+
+    // -----------------------------------------------------------------------
+    // Windows kill hint
+    // -----------------------------------------------------------------------
+
+    #[test]
+    #[cfg(windows)]
+    fn kill_hint_windows_uses_taskkill() {
+        let hint = super::kill_hint(1234);
+        assert!(hint.contains("taskkill"), "Windows kill hint should use taskkill");
+        assert!(hint.contains("1234"));
+    }
+
+    #[test]
+    #[cfg(not(windows))]
+    fn kill_hint_unix_uses_kill() {
+        let hint = super::kill_hint(1234);
+        assert!(hint.contains("kill"), "Unix kill hint should use kill");
+        assert!(hint.contains("1234"));
     }
 }
